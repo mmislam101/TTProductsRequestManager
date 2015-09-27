@@ -31,8 +31,6 @@ typedef NS_ENUM(NSInteger, TTProductsRequestManagerState)
 
 @end
 
-typedef void(^storeCompletionBlock)(TTProductsRequestManagerResponse response);
-
 @interface TTProductsRequestManager : NSObject
 
 // Must be called first before this singleton is used (so suggest placing in didLaunch

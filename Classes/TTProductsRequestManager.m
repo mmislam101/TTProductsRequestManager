@@ -7,10 +7,12 @@
 //
 
 #import "TTProductsRequestManager.h"
-#import <StoreKit/StoreKit.h>
+#import <StoreKit/SKProductsRequest.h>
+#import <StoreKit/SKProduct.h>
+#import <StoreKit/SKPaymentQueue.h>
 #import "TTProductObjectDecorator.h"
 
-@interface TTProductsRequestManager () <SKProductsRequestDelegate, SKPaymentTransactionObserver>
+@interface TTProductsRequestManager () <SKProductsRequestDelegate>
 
 @property (nonatomic, strong) SKProductsRequest *productsRequest;
 @property (nonatomic, strong) NSArray *productIds;
@@ -70,7 +72,6 @@
 - (void)dealloc
 {
 	[self.productsRequest cancel];
-	[[SKPaymentQueue defaultQueue] removeTransactionObserver:self];
 }
 
 + (BOOL)canMakePayments
@@ -204,135 +205,6 @@
 	if (self.delegate && [self.delegate respondsToSelector:@selector(productManager:didFinishLookupWithProductObjects:)])
 	{
 		[self.delegate productManager:self didFinishLookupWithProductObjects:loadedProductObjects.copy];
-	}
-}
-
-- (void)restorePurchaseWithCompletion:(storeCompletionBlock)completion
-{
-	self.state				= TTProductsRequestManagerStatePurchasing;
-
-	[[SKPaymentQueue defaultQueue] restoreCompletedTransactions];
-}
-
-#pragma mark SKPaymentTransactionObserver
-
-- (void)paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray *)transactions
-{
-	if (self.state != TTProductsRequestManagerStatePurchasing)
-	{
-		// Clear any rogue transactions
-		[transactions enumerateObjectsUsingBlock:^(SKPaymentTransaction *transaction, NSUInteger idx, BOOL *stop) {
-			[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
-		}];
-
-		return;
-	}
-
-	for (SKPaymentTransaction *transaction in transactions)
-	{
-		switch (transaction.transactionState)
-		{
-			case SKPaymentTransactionStatePurchased:
-			{
-//				[self finishPurchasingProduct:transaction.payment.productIdentifier];
-
-				// Finalize the transaction and remove it from the queue
-				[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
-
-				break;
-			}
-
-			case SKPaymentTransactionStateRestored:
-				// Finalize the transaction and remove it from the queue
-				[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
-				break;
-
-			case SKPaymentTransactionStateFailed:
-			{
-				if (self.completionBlock)
-					self.completionBlock(TTProductsRequestManagerResponseFail);
-
-				[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
-
-				break;
-			}
-
-			case SKPaymentTransactionStatePurchasing:
-
-				break;
-
-			default:
-				[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
-				break;
-		}
-	}
-}
-
-- (void)paymentQueue:(SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError:(NSError *)error
-{
-	if (self.completionBlock)
-		self.completionBlock(TTProductsRequestManagerResponseFail);
-}
-
-- (void)paymentQueueRestoreCompletedTransactionsFinished:(SKPaymentQueue *)queue
-{
-	NSArray *transactions = queue.transactions;
-
-	if (transactions.count == 0)
-	{
-		if (self.completionBlock)
-			self.completionBlock(TTProductsRequestManagerResponseNotAvailable);
-	}
-	else
-	{
-		// Grab all product IDs from transactions
-		NSMutableArray *purchasedProductIds = [[NSMutableArray alloc] init];
-		[transactions enumerateObjectsUsingBlock:^(SKPaymentTransaction *transaction, NSUInteger idx, BOOL *stop) {
-			[purchasedProductIds addObject:transaction.payment.productIdentifier];
-		}];
-
-		// Find all the corrosponding products
-		NSMutableArray *productsJustPurchased = [[NSMutableArray alloc] init];
-//		[_productsToPurchaseStack enumerateObjectsUsingBlock:^(TTProduct *product, NSUInteger idx, BOOL *stop) {
-//			[purchasedProductIds enumerateObjectsUsingBlock:^(NSString *purchasedProductId, NSUInteger idx, BOOL *stop) {
-//				if ([product.storeObject.productIdentifier rangeOfString:purchasedProductId].location != NSNotFound ||
-//					[purchasedProductId rangeOfString:product.storeObject.productIdentifier].location != NSNotFound)
-//				{
-//					[productsJustPurchased addObject:product];
-//				}
-//			}];
-//		}];
-
-		if (!productsJustPurchased.count)
-		{
-			if (self.completionBlock)
-				self.completionBlock(TTProductsRequestManagerResponseFail);
-
-			return;
-		}
-
-		NSMutableArray *indexPaths = [[NSMutableArray alloc] init];
-//		[productsJustPurchased enumerateObjectsUsingBlock:^(TTProduct *product, NSUInteger idx, BOOL *stop) {
-//			// Add new purchased product on userDefaults
-//			[TTData purchasedProduct:product.storeObject.productIdentifier];
-//
-//			// Pop it from the queue of productsChosen
-//			[_productsToPurchaseStack removeObject:product];
-//
-//			// Let app know that a product has been purchased
-//			[__parse notifyPurchaseOfProduct];
-//
-//			// Change the data model so it's not locked
-//			product.type.locked = [NSNumber numberWithBool:NO];
-//
-//			NSError *error;
-//			[__app.parentMOC save:&error];
-//
-//			[indexPaths addObject:[NSIndexPath indexPathForRow:idx inSection:0]];
-//		}];
-
-		if (self.completionBlock)
-			self.completionBlock(TTProductsRequestManagerResponseSuccess);
 	}
 }
 

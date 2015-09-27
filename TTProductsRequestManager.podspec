@@ -16,5 +16,5 @@ Pod::Spec.new do |s|
 
   s.source_files     = 'Classes'
 
-# s.frameworks       = 'UIKit'
+  s.frameworks       = 'StoreKit'
 end
